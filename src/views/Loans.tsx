@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { chitStats, fmtDate, isActive, itemStats, money, monthLabel, ordinal, schedItems } from "../../shared/finance";
+import { chitStats, fmtDate, isActive, itemStats, money, monthLabel, ordinal, schedItems, sipStats } from "../../shared/finance";
 import { CatDot, Empty, ExampleChip, StateChip, accName } from "../components/ui";
 import { useApp, useLedger } from "../state";
-import { ChitForm, EmiForm, PayForm, PrizeForm } from "../forms/LoanForms";
+import { ChitForm, EmiForm, PayForm, PrizeForm, SipForm } from "../forms/LoanForms";
 import { AccountCheck, PaymentHistory } from "./shared";
 
 export function Emis() {
@@ -50,7 +50,7 @@ export function Emis() {
                 <div><span className="label">Remaining</span><b>{s.remaining} EMIs</b></div>
                 <div><span className="label">Balance to pay</span><b>{money(s.remainingAmt)}</b></div>
                 {e.loanAmount > 0 && <div><span className="label">Loan amount</span><b>{money(e.loanAmount)}</b></div>}
-                <div><span className="label">Last EMI</span><b>{monthLabel(s.end, true)}</b></div>
+                <div><span className="label">Last EMI</span><b>{monthLabel(s.end!, true)}</b></div>
               </div>
               <div className="progress"><i style={{ width: `${pct.toFixed(1)}%` }} /></div>
               <AccountCheck l={l} it={it} today={today} />
@@ -154,6 +154,83 @@ export function Chitty() {
           );
         })}
       </div>
+    </>
+  );
+}
+
+export function Sips() {
+  const l = useLedger();
+  const { today, open } = useApp();
+  const [hist, setHist] = useState<Record<string, boolean>>({});
+  const tm = today.slice(0, 7);
+  const items = schedItems(l).filter((i) => i.kind === "sip");
+  const stats = items.map((it) => sipStats(l, it, today));
+  const stopped = l.sips.filter((s) => s.stopped);
+  const monthly = items.filter((it) => isActive(it, tm)).reduce((s, it) => s + it.amount, 0);
+  const invested = stats.reduce((s, x) => s + x.invested, 0);
+
+  return (
+    <>
+      <div className="kpis">
+        <div className="kpi"><span className="label">Monthly SIPs</span><span className="v">{money(monthly)}</span><span className="s">{items.length} active</span></div>
+        <div className="kpi"><span className="label">Invested so far</span><span className="v pos">{money(invested)}</span><span className="s">amount put in, not current value</span></div>
+        <div className="kpi" style={{ justifyContent: "center" }}><button className="btn primary" type="button" onClick={() => open(<SipForm />)}>Add SIP</button></div>
+      </div>
+      {!items.length && (
+        <div className="card">
+          <Empty title="No SIPs yet">
+            <span>Add each mutual fund SIP with its amount and debit date. You'll get a reminder {l.settings.reminderDays} days before so the bank has enough balance.</span>
+            <button className="btn primary" type="button" onClick={() => open(<SipForm />)}>Add SIP</button>
+          </Empty>
+        </div>
+      )}
+      <div className="grid">
+        {items.map((it, i) => {
+          const s = stats[i];
+          const p = it.sip!;
+          const pct = it.total ? Math.min(100, (s.paid / it.total) * 100) : 0;
+          return (
+            <div className="card loan" key={it.id}>
+              <div className="loan-top">
+                <div>
+                  <h2>{p.name}<ExampleChip show={p.sample} /></h2>
+                  <div className="muted">{p.platform ? `${p.platform} · ` : ""}debited on the {ordinal(it.dueDay)}</div>
+                </div>
+                {s.next ? <StateChip st={s.nextStatus} /> : <span className="chip paid">{it.total ? "Completed" : "Up to date"}</span>}
+              </div>
+              <div className="facts">
+                <div><span className="label">Monthly</span><b>{money(it.amount)}</b></div>
+                <div><span className="label">Installments</span><b>{it.total ? `${s.paid} / ${it.total}` : s.paid}</b></div>
+                <div><span className="label">Invested</span><b className="pos">{money(s.invested)}</b></div>
+                <div><span className="label">Started</span><b>{monthLabel(it.start, true)}</b></div>
+                <div><span className="label">Ends</span><b>{s.end ? monthLabel(s.end, true) : "No end date"}</b></div>
+              </div>
+              {it.total > 0 && <div className="progress"><i style={{ width: `${pct.toFixed(1)}%` }} /></div>}
+              <AccountCheck l={l} it={it} today={today} />
+              <div className="actions">
+                {s.next && <button className="btn small primary" type="button" onClick={() => open(<PayForm kind="sip" id={p.id} period={s.next!} />)}>Mark {monthLabel(s.next, true)} done</button>}
+                <button className="btn small" type="button" onClick={() => open(<SipForm s={p} />)}>Edit</button>
+                <button className="btn small ghost" type="button" onClick={() => setHist((h) => ({ ...h, [p.id]: !h[p.id] }))}>{hist[p.id] ? "Hide" : "Show"} installments ({s.pays.length})</button>
+              </div>
+              {hist[p.id] && <PaymentHistory l={l} it={it} pays={s.pays} />}
+            </div>
+          );
+        })}
+      </div>
+      {stopped.length > 0 && (
+        <div className="card">
+          <div className="card-h"><h2>Stopped SIPs</h2></div>
+          <div className="list">
+            {stopped.map((p) => (
+              <div className="li click" key={p.id} role="button" tabIndex={0} onClick={() => open(<SipForm s={p} />)}>
+                <CatDot cat="SIP" />
+                <div className="grow"><div className="t">{p.name}</div><div className="sub">{p.platform}</div></div>
+                <span className="chip paid">Stopped</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }

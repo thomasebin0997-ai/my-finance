@@ -1,6 +1,6 @@
 # Kanakku Ledger
 
-A personal money tracker: income and expenses, bank-wise and category-wise reports, EMIs and chitty, with reminders before each due date.
+A personal money tracker: income and expenses, bank-wise and category-wise reports, EMIs, chitty, SIPs and credit card bills, with reminders before each due date.
 
 ## Stack
 
@@ -9,7 +9,7 @@ A personal money tracker: income and expenses, bank-wise and category-wise repor
 | Frontend | React 18 + TypeScript, Vite, TanStack Query | `src/` |
 | API | Node.js + Express 5 (TypeScript, run with `tsx`), Zod validation | `server/` |
 | Database | PostgreSQL: Neon free tier in production, any Postgres locally (`pg` driver, plain SQL migrations) | `server/db.ts` |
-| Shared logic | Balances, EMI and chitty schedules, reminder rules | `shared/finance.ts` |
+| Shared logic | Balances, EMI, chitty, SIP and card bill schedules, reminder rules | `shared/finance.ts` |
 | Hosting | One Render web service serves both the API and the built React app | `render.yaml` |
 | Reminders | Daily call to `/api/cron/reminders` → Telegram and/or email | `.github/workflows/reminders.yml` |
 
@@ -17,9 +17,9 @@ The same `shared/finance.ts` runs in the browser (dashboard) and on the server (
 
 ### Data model
 
-- `accounts`: banks, credit cards, cash, UPI wallets, each with an opening balance.
-- `txns`: every money movement (`income`, `expense`, `transfer`). EMI and chitty payments are ordinary expenses tagged with `kind`, `emi_id`/`chit_id` and `period` (`YYYY-MM`). Unique indexes stop the same month being paid twice.
-- `emis`, `chits`: the schedules (first month, tenure, due day, amount, installments already paid before you started tracking).
+- `accounts`: banks, credit cards, cash, UPI wallets, each with an opening balance. Credit cards can also have a bill due day and the bank the bill is paid from.
+- `txns`: every money movement (`income`, `expense`, `transfer`). EMI, chitty and SIP payments are ordinary expenses tagged with `kind`, `emi_id`/`chit_id`/`sip_id` and `period` (`YYYY-MM`). Unique indexes stop the same month being paid twice. SIP installments reduce the bank balance but are reported as invested, not spent. A card bill payment is a transfer from the bank to the card (`kind = 'card'`), because the purchases were already counted as expenses.
+- `emis`, `chits`, `sips`: the schedules (first month, tenure, due day, amount, installments already paid before you started tracking).
 - `settings`: your categories and how many days ahead to remind.
 
 Balances, remaining EMIs, dividends and due status are calculated from these rows, never stored, so they can't drift out of sync.

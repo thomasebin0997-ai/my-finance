@@ -129,6 +129,36 @@ const MIGRATIONS: { id: number; sql: string }[] = [
       );
     `,
   },
+  {
+    id: 2,
+    sql: `
+      -- Credit card bills: due day and the account the bill is paid from.
+      ALTER TABLE accounts
+        ADD COLUMN due_day     int CHECK (due_day BETWEEN 1 AND 31),
+        ADD COLUMN pay_from_id text REFERENCES accounts(id) ON DELETE SET NULL;
+
+      CREATE TABLE sips (
+        id               text PRIMARY KEY,
+        name             text NOT NULL,
+        platform         text NOT NULL DEFAULT '',
+        amount           numeric(14,2) NOT NULL CHECK (amount > 0),
+        due_day          int NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+        start_month      char(7) NOT NULL,
+        months           int NOT NULL DEFAULT 0 CHECK (months >= 0),
+        paid_before      int NOT NULL DEFAULT 0 CHECK (paid_before >= 0),
+        invested_before  numeric(14,2),
+        account_id       text REFERENCES accounts(id) ON DELETE SET NULL,
+        stopped          boolean NOT NULL DEFAULT false,
+        sample           boolean NOT NULL DEFAULT false,
+        created_at       timestamptz NOT NULL DEFAULT now()
+      );
+
+      ALTER TABLE txns ADD COLUMN sip_id text REFERENCES sips(id) ON DELETE SET NULL;
+      ALTER TABLE txns DROP CONSTRAINT IF EXISTS txns_kind_check;
+      ALTER TABLE txns ADD CONSTRAINT txns_kind_check CHECK (kind IN ('emi','chit','chitprize','sip','card'));
+      CREATE UNIQUE INDEX txns_sip_period_uq ON txns (sip_id, period) WHERE kind = 'sip';
+    `,
+  },
 ];
 
 export async function migrate(): Promise<void> {

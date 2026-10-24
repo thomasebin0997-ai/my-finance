@@ -8,7 +8,7 @@ import { TxnForm } from "./forms/TxnForm";
 import { Dashboard } from "./views/Dashboard";
 import { Transactions } from "./views/Transactions";
 import { Reports } from "./views/Reports";
-import { Emis, Chitty } from "./views/Loans";
+import { Emis, Chitty, Sips } from "./views/Loans";
 import { Accounts } from "./views/Accounts";
 
 const VIEWS: { id: View; label: string; short: string; icon: ReactNode }[] = [
@@ -17,6 +17,7 @@ const VIEWS: { id: View; label: string; short: string; icon: ReactNode }[] = [
   { id: "reports", label: "Category & bank", short: "Reports", icon: <path d="M5 20V10M12 20V4M19 20v-7" /> },
   { id: "emis", label: "EMIs", short: "EMIs", icon: <><rect x="3" y="5" width="18" height="15" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></> },
   { id: "chitty", label: "Chitty", short: "Chitty", icon: <><circle cx="12" cy="12" r="8" /><path d="M12 4v8l5 3" /></> },
+  { id: "sips", label: "SIPs", short: "SIPs", icon: <path d="M4 18l5-5 4 3 7-8M15 8h5v5" /> },
   { id: "accounts", label: "Accounts & setup", short: "Accounts", icon: <><path d="M3 10l9-6 9 6" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18" /></> },
 ];
 const viewFromHash = (): View => {
@@ -146,7 +147,7 @@ function Shell() {
           </header>
           <main>
             {ledger.isLoading ? (
-              <div className="card empty"><b>Opening your ledger…</b><span>Loading accounts, entries, EMIs and chitty.</span></div>
+              <div className="card empty"><b>Opening your ledger…</b><span>Loading accounts, entries, EMIs, chitty and SIPs.</span></div>
             ) : ledger.isError ? (
               <div className="card empty">
                 <b>Couldn't load your ledger</b>
@@ -161,6 +162,7 @@ function Shell() {
                 {view === "reports" && <Reports />}
                 {view === "emis" && <Emis />}
                 {view === "chitty" && <Chitty />}
+                {view === "sips" && <Sips />}
                 {view === "accounts" && <Accounts />}
               </>
             )}
@@ -190,7 +192,7 @@ function SampleBanner() {
   const act = useActions();
   const [busy, setBusy] = useState(false);
   if (!data) return null;
-  const n = [data.accounts, data.txns, data.emis, data.chits].reduce((s, rows) => s + rows.filter((r) => r.sample).length, 0);
+  const n = [data.accounts, data.txns, data.emis, data.chits, data.sips].reduce((s, rows) => s + rows.filter((r) => r.sample).length, 0);
   if (!n) return null;
   return (
     <div className="alert info">

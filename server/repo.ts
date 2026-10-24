@@ -15,6 +15,8 @@ export const schemas = {
     name: text(60).min(1),
     type: z.enum(Object.keys(ACCOUNT_TYPES) as [keyof typeof ACCOUNT_TYPES]),
     opening: z.coerce.number().finite().min(-1e11).max(1e11).default(0),
+    dueDay: z.coerce.number().int().min(1).max(31).nullable().default(null),
+    payFromId: optId,
     sample: z.boolean().default(false),
   }),
   emis: z.object({
@@ -43,6 +45,19 @@ export const schemas = {
     paidBeforeAmount: z.coerce.number().finite().min(0).nullable().default(null),
     sample: z.boolean().default(false),
   }),
+  sips: z.object({
+    name: text(60).min(1),
+    platform: text(60).default(""),
+    amount,
+    dueDay: z.coerce.number().int().min(1).max(31),
+    startDate: month,
+    months: z.coerce.number().int().min(0).max(600).default(0),
+    paidBefore: z.coerce.number().int().min(0).default(0),
+    investedBefore: z.coerce.number().finite().min(0).nullable().default(null),
+    accountId: optId,
+    stopped: z.boolean().default(false),
+    sample: z.boolean().default(false),
+  }),
   txns: z
     .object({
       type: z.enum(["income", "expense", "transfer"]),
@@ -52,9 +67,10 @@ export const schemas = {
       toAccountId: optId,
       category: text(60).default("Other"),
       note: text(200).default(""),
-      kind: z.enum(["emi", "chit", "chitprize"]).nullable().default(null),
+      kind: z.enum(["emi", "chit", "chitprize", "sip", "card"]).nullable().default(null),
       emiId: optId,
       chitId: optId,
+      sipId: optId,
       period: month.nullable().default(null),
       chitDue: z.coerce.number().finite().min(0).nullable().default(null),
       sample: z.boolean().default(false),
@@ -65,6 +81,8 @@ export const schemas = {
       if (t.kind === "emi" && (!t.emiId || !t.period)) ctx.addIssue({ code: "custom", message: "EMI payment needs the loan and month." });
       if (t.kind === "chit" && (!t.chitId || !t.period)) ctx.addIssue({ code: "custom", message: "Chitty payment needs the chitty and month." });
       if (t.kind === "chitprize" && !t.chitId) ctx.addIssue({ code: "custom", message: "Prize needs the chitty." });
+      if (t.kind === "sip" && (!t.sipId || !t.period)) ctx.addIssue({ code: "custom", message: "SIP installment needs the SIP and month." });
+      if (t.kind === "card" && (t.type !== "transfer" || !t.period)) ctx.addIssue({ code: "custom", message: "Card bill payment needs the card and month." });
     }),
 } as const;
 
@@ -79,7 +97,7 @@ export const COLLECTIONS = Object.keys(schemas) as Collection[];
 
 /** camelCase field -> snake_case column, per table. */
 const COLUMNS: Record<Collection, Record<string, string>> = {
-  accounts: { name: "name", type: "type", opening: "opening", sample: "sample" },
+  accounts: { name: "name", type: "type", opening: "opening", dueDay: "due_day", payFromId: "pay_from_id", sample: "sample" },
   emis: {
     name: "name", lender: "lender", emi: "emi", dueDay: "due_day", startDate: "start_month", tenure: "tenure",
     paidBefore: "paid_before", loanAmount: "loan_amount", accountId: "account_id", closed: "closed", sample: "sample",
@@ -88,15 +106,20 @@ const COLUMNS: Record<Collection, Record<string, string>> = {
     name: "name", company: "company", chitValue: "chit_value", installment: "installment", months: "months", dueDay: "due_day",
     startDate: "start_month", accountId: "account_id", paidBefore: "paid_before", paidBeforeAmount: "paid_before_amount", sample: "sample",
   },
+  sips: {
+    name: "name", platform: "platform", amount: "amount", dueDay: "due_day", startDate: "start_month", months: "months",
+    paidBefore: "paid_before", investedBefore: "invested_before", accountId: "account_id", stopped: "stopped", sample: "sample",
+  },
   txns: {
     type: "type", amount: "amount", date: "date", accountId: "account_id", toAccountId: "to_account_id", category: "category",
-    note: "note", kind: "kind", emiId: "emi_id", chitId: "chit_id", period: "period", chitDue: "chit_due", sample: "sample",
+    note: "note", kind: "kind", emiId: "emi_id", chitId: "chit_id", sipId: "sip_id", period: "period", chitDue: "chit_due", sample: "sample",
   },
 };
 const ORDER: Record<Collection, string> = {
   accounts: "created_at, name",
   emis: "created_at",
   chits: "created_at",
+  sips: "created_at",
   txns: "date DESC, created_at DESC",
 };
 
@@ -161,16 +184,16 @@ export async function saveSettings(input: unknown, q: Q = pool): Promise<Setting
 }
 
 export async function ledger(): Promise<Ledger> {
-  const [accounts, txns, emis, chits, settings] = await Promise.all([
-    list("accounts"), list("txns"), list("emis"), list("chits"), getSettings(),
+  const [accounts, txns, emis, chits, sips, settings] = await Promise.all([
+    list("accounts"), list("txns"), list("emis"), list("chits"), list("sips"), getSettings(),
   ]);
-  return { accounts, txns, emis, chits, settings } as Ledger;
+  return { accounts, txns, emis, chits, sips, settings } as Ledger;
 }
 
 export async function removeSamples(): Promise<number> {
   return tx(async (c) => {
     let n = 0;
-    for (const t of ["txns", "emis", "chits", "accounts"]) {
+    for (const t of ["txns", "emis", "chits", "sips", "accounts"]) {
       const r = await c.query(`DELETE FROM ${t} WHERE sample`);
       n += r.rowCount ?? 0;
     }

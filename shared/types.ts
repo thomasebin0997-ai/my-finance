@@ -13,12 +13,16 @@ export interface Account {
   name: string;
   type: AccountType;
   opening: number;
+  /** Credit cards: bill due day of month (null = no bill reminder). */
+  dueDay: number | null;
+  /** Credit cards: the bank account the bill is usually paid from. */
+  payFromId: string | null;
   sample: boolean;
   createdAt?: number;
 }
 
 export type TxnType = "income" | "expense" | "transfer";
-export type TxnKind = "emi" | "chit" | "chitprize";
+export type TxnKind = "emi" | "chit" | "chitprize" | "sip" | "card";
 
 export interface Txn {
   id: string;
@@ -32,7 +36,8 @@ export interface Txn {
   kind: TxnKind | null;
   emiId: string | null;
   chitId: string | null;
-  period: string | null; // YYYY-MM the installment belongs to
+  sipId: string | null;
+  period: string | null; // YYYY-MM the installment (or card bill) belongs to
   chitDue: number | null; // full chitty installment, to derive the dividend
   sample: boolean;
   createdAt?: number;
@@ -70,6 +75,22 @@ export interface Chit {
   createdAt?: number;
 }
 
+export interface Sip {
+  id: string;
+  name: string; // fund / scheme
+  platform: string; // AMC, broker or app
+  amount: number;
+  dueDay: number;
+  startDate: string; // YYYY-MM of the first installment
+  months: number; // 0 = no end date
+  paidBefore: number;
+  investedBefore: number | null; // amount for those; null = paidBefore × amount
+  accountId: string | null;
+  stopped: boolean;
+  sample: boolean;
+  createdAt?: number;
+}
+
 export interface Settings {
   expenseCats: string[];
   incomeCats: string[];
@@ -81,6 +102,7 @@ export interface Ledger {
   txns: Txn[];
   emis: Emi[];
   chits: Chit[];
+  sips: Sip[];
   settings: Settings;
 }
 
@@ -95,5 +117,5 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /** Categories the app assigns itself; always available, never deletable. */
-export const SYS_EXP = ["EMI", "Chitty"];
+export const SYS_EXP = ["EMI", "Chitty", "SIP"];
 export const SYS_INC = ["Chitty prize"];

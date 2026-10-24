@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { balances, compact, groupBy, idxOf, money, monthDiff, monthLabel, monthTxns, addMonths, ordinal, reminders, schedItems, status, sumAmt } from "../../shared/finance";
+import { KIND_LABEL, balances, compact, groupBy, idxOf, isInvest, isSpend, money, monthDiff, monthLabel, monthTxns, addMonths, ordinal, reminders, schedItems, status, sumAmt, type SchedItem } from "../../shared/finance";
 import type { Ledger } from "../../shared/types";
 import { AccDot, BellIcon, CatDot, Empty, StateChip, TxnRow, accName } from "../components/ui";
 import { useApp, useLedger } from "../state";
 import { PayForm } from "../forms/LoanForms";
 import { TxnForm } from "../forms/TxnForm";
-import { EmiForm, ChitForm } from "../forms/LoanForms";
+import { EmiForm, ChitForm, SipForm } from "../forms/LoanForms";
 import { NoAccounts } from "./shared";
 
 export function Dashboard() {
@@ -16,13 +16,15 @@ export function Dashboard() {
   const TM = today.slice(0, 7);
   const mt = monthTxns(l, M);
   const incRows = mt.filter((t) => t.type === "income");
-  const expRows = mt.filter((t) => t.type === "expense");
+  const expRows = mt.filter(isSpend);
   const inc = sumAmt(incRows);
   const exp = sumAmt(expRows);
+  const invested = sumAmt(mt.filter(isInvest));
   const bal = balances(l);
   const total = Object.values(bal).reduce((a, b) => a + b, 0);
   const rem = reminders(l, today);
   const dues = schedItems(l)
+    .filter((it) => it.kind !== "card" || M === TM) // a card's amount is today's outstanding
     .map((it) => ({ it, st: status(l, it, M, today) }))
     .filter((x): x is { it: (typeof x)["it"]; st: NonNullable<(typeof x)["st"]> } => !!x.st)
     .sort((a, b) => a.st.due.localeCompare(b.st.due));
@@ -40,7 +42,7 @@ export function Dashboard() {
             <div className="row" key={r.it.kind + r.it.id + r.m}>
               <div>
                 <b>{r.it.name}</b>{" "}
-                <span className="muted">{r.it.kind === "emi" ? "EMI" : "Chitty"} · {monthLabel(r.m, true)} · {money(r.it.amount)} from {accName(l, r.it.accountId)}</span>
+                <span className="muted">{KIND_LABEL[r.it.kind]} · {r.it.kind === "card" ? `${money(r.it.amount)} outstanding` : `${monthLabel(r.m, true)} · ${money(r.it.amount)}`} from {accName(l, r.it.accountId)}</span>
               </div>
               <div className="actions">
                 <StateChip st={r.st} />
@@ -55,18 +57,22 @@ export function Dashboard() {
         <div className="kpi hero"><span className="label">Balance in all accounts</span><span className="v">{money(total)}</span><span className="s">{l.accounts.length} accounts · as of today</span></div>
         <div className="kpi"><span className="label">Income · {monthLabel(M, true)}</span><span className="v pos">{money(inc)}</span><span className="s">{plural(incRows.length, "entry", "entries")}</span></div>
         <div className="kpi"><span className="label">Spent · {monthLabel(M, true)}</span><span className="v neg">{money(exp)}</span><span className="s">{plural(expRows.length, "entry", "entries")}, incl. EMI & chitty</span></div>
-        <div className="kpi"><span className="label">Saved this month</span><span className="v">{money(inc - exp)}</span><span className="s">{inc > 0 ? `${Math.round(((inc - exp) / inc) * 100)}% of income` : "No income recorded"}</span></div>
+        <div className="kpi">
+          <span className="label">Saved this month</span><span className="v">{money(inc - exp)}</span>
+          <span className="s">{inc > 0 ? `${Math.round(((inc - exp) / inc) * 100)}% of income` : "No income recorded"}{invested ? ` · ${money(invested)} into SIPs` : ""}</span>
+        </div>
       </div>
 
       <div className="grid">
         <div className="card">
-          <div className="card-h"><h2>EMIs & chitty · {monthLabel(M, true)}</h2><span className="muted">{money(pending)} still to pay</span></div>
+          <div className="card-h"><h2>Monthly dues · {monthLabel(M, true)}</h2><span className="muted">{money(pending)} still to pay</span></div>
           {!dues.length ? (
             <Empty>
-              <span>No EMIs or chitty installments fall in this month.</span>
+              <span>No EMIs, chitty, SIPs or card bills fall in this month.</span>
               <div className="actions">
                 <button className="btn small" type="button" onClick={() => open(<EmiForm />)}>Add EMI</button>
                 <button className="btn small" type="button" onClick={() => open(<ChitForm />)}>Add chitty</button>
+                <button className="btn small" type="button" onClick={() => open(<SipForm />)}>Add SIP</button>
               </div>
             </Empty>
           ) : (
@@ -74,10 +80,10 @@ export function Dashboard() {
               <div className="list">
                 {dues.map(({ it, st }) => (
                   <div className="li" key={it.kind + it.id}>
-                    <CatDot cat={it.kind === "emi" ? "EMI" : "Chitty"} />
+                    <CatDot cat={it.kind === "card" ? "Card" : KIND_LABEL[it.kind]} />
                     <div className="grow">
                       <div className="t">{it.name}</div>
-                      <div className="sub">{ordinal(it.dueDay)} · {accName(l, it.accountId)} · installment {idxOf(it, M)} of {it.total}</div>
+                      <div className="sub">{ordinal(it.dueDay)} · {accName(l, it.accountId)} · {dueSub(it, M)}</div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <span className="amt">{money(it.amount)}</span>
@@ -153,6 +159,11 @@ export function Dashboard() {
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+function dueSub(it: SchedItem, M: string) {
+  if (it.kind === "card") return "card bill, outstanding today";
+  const label = it.kind === "sip" ? "SIP installment" : "installment";
+  return it.total ? `${label} ${idxOf(it, M)} of ${it.total}` : `${label} ${idxOf(it, M)}`;
+}
 
 function useNarrow(query = "(max-width: 520px)") {
   const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
@@ -176,7 +187,7 @@ function TrendChart({ l, M }: { l: Ledger; M: string }) {
   const months = [5, 4, 3, 2, 1, 0].map((i) => addMonths(M, -i));
   const data = months.map((m) => {
     const t = monthTxns(l, m);
-    return { m, inc: sumAmt(t.filter((x) => x.type === "income")), exp: sumAmt(t.filter((x) => x.type === "expense")) };
+    return { m, inc: sumAmt(t.filter((x) => x.type === "income")), exp: sumAmt(t.filter(isSpend)) };
   });
   const max = niceMax(Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp))));
   const narrow = useNarrow();

@@ -1,4 +1,4 @@
-import type { Account, Chit, Emi, Ledger, Settings, Txn } from "../shared/types";
+import type { Account, Chit, Emi, Ledger, Settings, Sip, Txn } from "../shared/types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -24,8 +24,8 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
-export type Col = "accounts" | "txns" | "emis" | "chits";
-export type RowOf<C extends Col> = C extends "accounts" ? Account : C extends "txns" ? Txn : C extends "emis" ? Emi : Chit;
+export type Col = "accounts" | "txns" | "emis" | "chits" | "sips";
+export type RowOf<C extends Col> = C extends "accounts" ? Account : C extends "txns" ? Txn : C extends "emis" ? Emi : C extends "sips" ? Sip : Chit;
 export type Draft<C extends Col> = Omit<RowOf<C>, "id" | "createdAt"> & { id?: string };
 
 export const api = {

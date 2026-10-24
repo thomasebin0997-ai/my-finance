@@ -2,7 +2,7 @@ import { pool } from "./db";
 import { env } from "./env";
 import { channels, send } from "./notify";
 import { ledger } from "./repo";
-import { balances, fmtDate, money, reminders, todayIn, type Reminder } from "../shared/finance";
+import { KIND_LABEL, balances, fmtDate, money, reminders, todayIn, type Reminder } from "../shared/finance";
 import type { Ledger } from "../shared/types";
 
 function when(r: Reminder) {
@@ -16,9 +16,10 @@ export function buildMessage(l: Ledger, items: Reminder[]) {
   const bal = balances(l);
   const acc = (id: string | null) => l.accounts.find((a) => a.id === id)?.name ?? "no account";
   const lines = items.map((r) => {
-    const kind = r.it.kind === "emi" ? "EMI" : "Chitty";
+    const kind = KIND_LABEL[r.it.kind];
+    const amt = r.it.kind === "card" ? `${money(r.it.amount)} outstanding` : money(r.it.amount);
     const b = r.it.accountId != null && r.it.accountId in bal ? `, balance ${money(bal[r.it.accountId])}` : "";
-    return `• ${r.it.name} · ${kind} ${money(r.it.amount)} · ${when(r)} · from ${acc(r.it.accountId)}${b}`;
+    return `• ${r.it.name} · ${kind} ${amt} · ${when(r)} · from ${acc(r.it.accountId)}${b}`;
   });
   const total = items.reduce((s, r) => s + r.it.amount, 0);
   const subject = `Kanakku: ${items.length} payment${items.length > 1 ? "s" : ""} due · ${money(total)}`;

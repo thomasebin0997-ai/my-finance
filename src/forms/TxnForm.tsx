@@ -10,7 +10,7 @@ export function TxnForm({ t }: { t?: Txn }) {
   const { today, filter, open, toast } = useApp();
   const act = useActions();
   const [type, setType] = useState<TxnType>(t?.type ?? "expense");
-  const locked = !!t?.kind; // EMI / chitty payments keep their type
+  const locked = !!t?.kind; // EMI / chitty / SIP / card bill payments keep their type
 
   const { busy, onSubmit } = useSubmit((f) => {
     const ty = locked ? t!.type : type;
@@ -31,6 +31,7 @@ export function TxnForm({ t }: { t?: Txn }) {
         kind: t?.kind ?? null,
         emiId: t?.emiId ?? null,
         chitId: t?.chitId ?? null,
+        sipId: t?.sipId ?? null,
         period: t?.period ?? null,
         chitDue: t?.chitDue ?? null,
         sample: t?.sample ?? false,
@@ -43,7 +44,12 @@ export function TxnForm({ t }: { t?: Txn }) {
 
   const cats = type === "income" ? [...l.settings.incomeCats, ...SYS_INC] : [...l.settings.expenseCats, ...SYS_EXP];
   if (t?.category && type === t.type && !cats.includes(t.category)) cats.push(t.category);
-  const linked = t?.kind === "emi" ? l.emis.find((e) => e.id === t.emiId) : t?.kind ? l.chits.find((c) => c.id === t.chitId) : undefined;
+  const linked =
+    t?.kind === "emi" ? l.emis.find((e) => e.id === t.emiId)
+    : t?.kind === "sip" ? l.sips.find((s) => s.id === t.sipId)
+    : t?.kind === "card" ? l.accounts.find((a) => a.id === t.toAccountId)
+    : t?.kind ? l.chits.find((c) => c.id === t.chitId)
+    : undefined;
   const defAcc = t?.accountId ?? (filter.account !== "all" ? filter.account : l.accounts[0].id);
 
   return (

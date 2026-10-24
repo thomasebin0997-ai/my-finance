@@ -33,6 +33,8 @@ export function CatDot({ cat, type }: { cat: string; type?: Txn["type"] }) {
   if (type === "transfer") return <div className="dot" style={{ background: "var(--surface-2)", color: "var(--ink-2)" }}>⇄</div>;
   if (cat === "EMI") return <div className="dot" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>E</div>;
   if (cat === "Chitty" || cat === "Chitty prize") return <div className="dot" style={{ background: "var(--gold-soft)", color: "var(--gold)" }}>C</div>;
+  if (cat === "SIP") return <div className="dot" style={{ background: "var(--pos-soft)", color: "var(--pos)" }}>S</div>;
+  if (cat === "Card") return <div className="dot" style={{ background: "var(--surface-2)", color: "var(--ink-2)", fontSize: ".7rem" }}>CC</div>;
   const h = hue(cat || "?");
   return <div className="dot" style={{ background: `hsl(${h} 45% 50% / .16)`, color: `hsl(${h} 40% 42%)` }}>{(cat || "?").slice(0, 1).toUpperCase()}</div>;
 }

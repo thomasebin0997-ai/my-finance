@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { balances, money, monthLabel, monthTxns, sumAmt } from "../../shared/finance";
+import { balances, itemStats, money, monthLabel, monthTxns, ordinal, schedItems, sumAmt } from "../../shared/finance";
 import { SYS_EXP, SYS_INC } from "../../shared/types";
-import { AccDot, Empty, ExampleChip, accTypeLabel } from "../components/ui";
+import { AccDot, Empty, ExampleChip, StateChip, accName, accTypeLabel } from "../components/ui";
 import { useActions, useApp, useLedger } from "../state";
 import { AccountForm } from "../forms/AccountForm";
+import { PayForm } from "../forms/LoanForms";
 import { api } from "../api";
 
 export function Accounts() {
@@ -80,6 +81,7 @@ export function Accounts() {
                   <div className="grow">
                     <div className="t">{a.name}<ExampleChip show={a.sample} /></div>
                     <div className="sub">{accTypeLabel(a)} · opening {money(a.opening)} · {n} entries · spent {money(o)} in {monthLabel(M, true)}</div>
+                    {a.type === "card" && <CardBill id={a.id} />}
                   </div>
                   <div className={`amt ${bal[a.id] < 0 ? "neg" : ""}`}>{money(bal[a.id])}</div>
                   <button className="btn small" type="button" onClick={() => open(<AccountForm a={a} />)}>Edit</button>
@@ -96,7 +98,7 @@ export function Accounts() {
         <div className="card">
           <div className="card-h"><h2>Reminders</h2></div>
           <label className="fld" style={{ maxWidth: 340 }}>
-            <span>Remind me this many days before an EMI or chitty is due</span>
+            <span>Remind me this many days before an EMI, chitty, SIP or card bill is due</span>
             <input
               id="rdays"
               type="number"
@@ -137,5 +139,26 @@ export function Accounts() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Bill line under a credit card: due day, next bill and a Pay button. */
+function CardBill({ id }: { id: string }) {
+  const l = useLedger();
+  const { today, open } = useApp();
+  const a = l.accounts.find((x) => x.id === id)!;
+  const it = schedItems(l).find((x) => x.kind === "card" && x.id === id);
+  if (!it) return <div className="sub faint">Edit this card to set the bill due day and get reminders.</div>;
+  const s = itemStats(l, it, today);
+  return (
+    <div className="sub" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+      <span>Bill due on the {ordinal(it.dueDay)}{a.payFromId ? ` · paid from ${accName(l, a.payFromId)}` : ""}</span>
+      {s.next ? (
+        <>
+          <StateChip st={s.nextStatus} />
+          <button className="btn small primary" type="button" onClick={() => open(<PayForm kind="card" id={id} period={s.next!} />)}>Pay bill</button>
+        </>
+      ) : <span className="chip paid">{it.amount > 0 ? "Paid" : "Nothing owed"}</span>}
+    </div>
   );
 }
