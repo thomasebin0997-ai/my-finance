@@ -18,7 +18,7 @@ The same `shared/finance.ts` runs in the browser (dashboard) and on the server (
 ### Data model
 
 - `accounts`: banks, credit cards, cash, UPI wallets, each with an opening balance. Credit cards can also have a bill due day and the bank the bill is paid from.
-- `txns`: every money movement (`income`, `expense`, `transfer`). EMI, chitty and SIP payments are ordinary expenses tagged with `kind`, `emi_id`/`chit_id`/`sip_id` and `period` (`YYYY-MM`). Unique indexes stop the same month being paid twice. SIP installments reduce the bank balance but are reported as invested, not spent. A card bill payment is a transfer from the bank to the card (`kind = 'card'`), because the purchases were already counted as expenses.
+- `txns`: every money movement (`income`, `expense`, `transfer`). EMI, chitty and SIP payments are ordinary expenses tagged with `kind`, `emi_id`/`chit_id`/`sip_id` and `period` (`YYYY-MM`). Unique indexes stop the same month being paid twice. SIP installments count as spending (category "SIP"). A card bill payment is a transfer from the bank to the card (`kind = 'card'`), because the purchases were already counted as expenses.
 - `emis`, `chits`, `sips`: the schedules (first month, tenure, due day, amount, installments already paid before you started tracking).
 - `settings`: your categories and how many days ahead to remind.
 

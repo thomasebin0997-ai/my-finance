@@ -105,9 +105,6 @@ export function balances(l: Ledger): Record<string, number> {
   return b;
 }
 export const monthTxns = (l: Ledger, m: string) => l.txns.filter((t) => t.date?.slice(0, 7) === m);
-/** Money spent. SIP installments are expenses for the bank balance but count as investment, not spending. */
-export const isSpend = (t: Txn) => t.type === "expense" && t.kind !== "sip";
-export const isInvest = (t: Txn) => t.type === "expense" && t.kind === "sip";
 
 /* ---------- EMI, chitty, SIP & card bill schedules ---------- */
 export type SchedKind = "emi" | "chit" | "sip" | "card";

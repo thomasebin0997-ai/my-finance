@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KIND_LABEL, balances, compact, groupBy, idxOf, isInvest, isSpend, money, monthDiff, monthLabel, monthTxns, addMonths, ordinal, reminders, schedItems, status, sumAmt, type SchedItem } from "../../shared/finance";
+import { KIND_LABEL, balances, compact, groupBy, idxOf, money, monthDiff, monthLabel, monthTxns, addMonths, ordinal, reminders, schedItems, status, sumAmt, type SchedItem } from "../../shared/finance";
 import type { Ledger } from "../../shared/types";
 import { AccDot, BellIcon, CatDot, Empty, StateChip, TxnRow, accName } from "../components/ui";
 import { useApp, useLedger } from "../state";
@@ -16,10 +16,9 @@ export function Dashboard() {
   const TM = today.slice(0, 7);
   const mt = monthTxns(l, M);
   const incRows = mt.filter((t) => t.type === "income");
-  const expRows = mt.filter(isSpend);
+  const expRows = mt.filter((t) => t.type === "expense");
   const inc = sumAmt(incRows);
   const exp = sumAmt(expRows);
-  const invested = sumAmt(mt.filter(isInvest));
   const bal = balances(l);
   const total = Object.values(bal).reduce((a, b) => a + b, 0);
   const rem = reminders(l, today);
@@ -56,11 +55,8 @@ export function Dashboard() {
       <div className="kpis">
         <div className="kpi hero"><span className="label">Balance in all accounts</span><span className="v">{money(total)}</span><span className="s">{l.accounts.length} accounts · as of today</span></div>
         <div className="kpi"><span className="label">Income · {monthLabel(M, true)}</span><span className="v pos">{money(inc)}</span><span className="s">{plural(incRows.length, "entry", "entries")}</span></div>
-        <div className="kpi"><span className="label">Spent · {monthLabel(M, true)}</span><span className="v neg">{money(exp)}</span><span className="s">{plural(expRows.length, "entry", "entries")}, incl. EMI & chitty</span></div>
-        <div className="kpi">
-          <span className="label">Saved this month</span><span className="v">{money(inc - exp)}</span>
-          <span className="s">{inc > 0 ? `${Math.round(((inc - exp) / inc) * 100)}% of income` : "No income recorded"}{invested ? ` · ${money(invested)} into SIPs` : ""}</span>
-        </div>
+        <div className="kpi"><span className="label">Spent · {monthLabel(M, true)}</span><span className="v neg">{money(exp)}</span><span className="s">{plural(expRows.length, "entry", "entries")}, incl. EMI, chitty & SIP</span></div>
+        <div className="kpi"><span className="label">Saved this month</span><span className="v">{money(inc - exp)}</span><span className="s">{inc > 0 ? `${Math.round(((inc - exp) / inc) * 100)}% of income` : "No income recorded"}</span></div>
       </div>
 
       <div className="grid">
@@ -187,7 +183,7 @@ function TrendChart({ l, M }: { l: Ledger; M: string }) {
   const months = [5, 4, 3, 2, 1, 0].map((i) => addMonths(M, -i));
   const data = months.map((m) => {
     const t = monthTxns(l, m);
-    return { m, inc: sumAmt(t.filter((x) => x.type === "income")), exp: sumAmt(t.filter(isSpend)) };
+    return { m, inc: sumAmt(t.filter((x) => x.type === "income")), exp: sumAmt(t.filter((x) => x.type === "expense")) };
   });
   const max = niceMax(Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp))));
   const narrow = useNarrow();
