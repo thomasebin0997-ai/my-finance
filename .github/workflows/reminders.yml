@@ -1,0 +1,24 @@
+# Free daily reminder: GitHub calls your Render app once a day.
+# Add two repository secrets (Settings → Secrets and variables → Actions):
+#   KANAKKU_URL          e.g. https://kanakku.onrender.com
+#   KANAKKU_CRON_SECRET  the CRON_SECRET value from Render
+name: Daily payment reminder
+
+on:
+  schedule:
+    - cron: "30 2 * * *" # 08:00 IST (GitHub cron runs in UTC; it can start a few minutes late)
+  workflow_dispatch: {} # lets you run it by hand from the Actions tab
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the app and send today's reminder
+        env:
+          URL: ${{ secrets.KANAKKU_URL }}
+          KEY: ${{ secrets.KANAKKU_CRON_SECRET }}
+        run: |
+          # The free Render instance may be asleep; retries give it time to start.
+          curl -fsS --retry 4 --retry-delay 30 --retry-all-errors --max-time 120 \
+            -H "Authorization: Bearer $KEY" \
+            "$URL/api/cron/reminders"

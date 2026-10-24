@@ -1,0 +1,66 @@
+# Render Blueprint: one free web service (API + React app).
+# The database is external (e.g. Neon's free PostgreSQL); paste its connection string as DATABASE_URL.
+# Deploy: Render Dashboard → New → Blueprint → pick this repo.
+services:
+  - type: web
+    name: kanakku
+    runtime: node
+    plan: free               # sleeps after 15 min idle; first visit after that takes ~1 min
+    region: singapore        # closest Render region to India
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL      # postgresql://user:pass@host/db?sslmode=require (from Neon)
+        sync: false
+      - key: APP_PASSWORD      # the password you'll sign in with
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CRON_SECRET       # key for the daily reminder call
+        generateValue: true
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REMINDER_EMAIL_FROM
+        sync: false
+      - key: REMINDER_EMAIL_TO
+        sync: false
+
+  # Optional: Render Cron Job instead of the free GitHub Actions schedule.
+  # Cron jobs are a paid Render service type.
+  # - type: cron
+  #   name: kanakku-reminders
+  #   runtime: node
+  #   region: singapore
+  #   schedule: "30 2 * * *"   # 08:00 IST every day (cron runs in UTC)
+  #   buildCommand: npm ci
+  #   startCommand: npm run remind
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       sync: false
+  #     - key: APP_TIMEZONE
+  #       value: Asia/Kolkata
+  #     - key: TELEGRAM_BOT_TOKEN
+  #       sync: false
+  #     - key: TELEGRAM_CHAT_ID
+  #       sync: false
+
+# Prefer Render's own PostgreSQL instead? Uncomment this block, and change DATABASE_URL above to:
+#       fromDatabase:
+#         name: kanakku-db
+#         property: connectionString
+# Note: Render's free databases are deleted 30 days after creation; 0.1c-256mb is the smallest paid plan.
+# databases:
+#   - name: kanakku-db
+#     plan: 0.1c-256mb
+#     region: singapore
+#     databaseName: kanakku
+#     user: kanakku
