@@ -159,6 +159,24 @@ const MIGRATIONS: { id: number; sql: string }[] = [
       CREATE UNIQUE INDEX txns_sip_period_uq ON txns (sip_id, period) WHERE kind = 'sip';
     `,
   },
+  {
+    id: 3,
+    sql: `
+      CREATE TABLE debts (
+        id          text PRIMARY KEY,
+        person      text NOT NULL,
+        direction   text NOT NULL CHECK (direction IN ('lent','borrowed')),
+        note        text NOT NULL DEFAULT '',
+        due_date    date,
+        closed      boolean NOT NULL DEFAULT false,
+        sample      boolean NOT NULL DEFAULT false,
+        created_at  timestamptz NOT NULL DEFAULT now()
+      );
+      ALTER TABLE txns ADD COLUMN debt_id text REFERENCES debts(id) ON DELETE SET NULL;
+      ALTER TABLE txns DROP CONSTRAINT IF EXISTS txns_kind_check;
+      ALTER TABLE txns ADD CONSTRAINT txns_kind_check CHECK (kind IN ('emi','chit','chitprize','sip','card','debt'));
+    `,
+  },
 ];
 
 export async function migrate(): Promise<void> {

@@ -18,7 +18,7 @@ async function importFile(file: string) {
   const counts: Record<string, number> = {};
   await tx(async (c) => {
     // Parents before children so foreign keys resolve.
-    for (const col of ["accounts", "emis", "chits", "sips", "txns"] as Collection[]) {
+    for (const col of ["accounts", "emis", "chits", "sips", "debts", "txns"] as Collection[]) {
       const rows: Record<string, unknown>[] = raw[col] || [];
       // Cards point at the bank they're paid from, so insert those banks first.
       if (col === "accounts") rows.sort((a, b) => Number(!!a.payFromId) - Number(!!b.payFromId));

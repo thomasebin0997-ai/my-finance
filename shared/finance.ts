@@ -2,7 +2,7 @@
  * Pure calculations shared by the React app and the server (reminders).
  * Nothing here touches the network or the clock: callers pass `today`.
  */
-import type { Account, Chit, Emi, Ledger, Sip, Txn } from "./types";
+import type { Account, Chit, Debt, Emi, Ledger, Sip, Txn } from "./types";
 
 /* ---------- dates ---------- */
 export const pad = (n: number) => String(n).padStart(2, "0");
@@ -105,10 +105,24 @@ export function balances(l: Ledger): Record<string, number> {
   return b;
 }
 export const monthTxns = (l: Ledger, m: string) => l.txns.filter((t) => t.date?.slice(0, 7) === m);
+/** Real income and spending. Lending, borrowing and repayments move money but aren't either. */
+export const isEarn = (t: Txn) => t.type === "income" && t.kind !== "debt";
+export const isSpend = (t: Txn) => t.type === "expense" && t.kind !== "debt";
+
+/* ---------- lending & borrowing ---------- */
+export function debtStats(l: Ledger, d: Debt) {
+  const pays = l.txns.filter((t) => t.kind === "debt" && t.debtId === d.id);
+  const out = sumAmt(pays.filter((t) => t.type === "expense"));
+  const back = sumAmt(pays.filter((t) => t.type === "income"));
+  // Lent: money went out and comes back in. Borrowed: the reverse.
+  const principal = d.direction === "lent" ? out : back;
+  const repaid = d.direction === "lent" ? back : out;
+  return { pays, principal, repaid, outstanding: Math.max(0, principal - repaid), settled: d.closed || principal - repaid <= 0 };
+}
 
 /* ---------- EMI, chitty, SIP & card bill schedules ---------- */
-export type SchedKind = "emi" | "chit" | "sip" | "card";
-export const KIND_LABEL: Record<SchedKind, string> = { emi: "EMI", chit: "Chitty", sip: "SIP", card: "Card bill" };
+export type SchedKind = "emi" | "chit" | "sip" | "card" | "debt";
+export const KIND_LABEL: Record<SchedKind, string> = { emi: "EMI", chit: "Chitty", sip: "SIP", card: "Card bill", debt: "Lending" };
 export interface SchedItem {
   kind: SchedKind;
   id: string;
@@ -125,6 +139,7 @@ export interface SchedItem {
   chit?: Chit;
   sip?: Sip;
   card?: Account;
+  debt?: Debt;
 }
 export type DueState = "paid" | "overdue" | "soon" | "upcoming";
 export interface DueStatus {
@@ -150,7 +165,16 @@ export function schedItems(l: Ledger): SchedItem[] {
   const cards: SchedItem[] = l.accounts
     .filter((a) => a.type === "card" && a.dueDay)
     .map((a) => ({ kind: "card", id: a.id, name: a.name, sub: "Credit card bill", amount: Math.max(0, -(bal[a.id] ?? 0)), dueDay: Number(a.dueDay), start: firstBill(a), total: 0, paidBefore: 0, accountId: a.payFromId, card: a }));
-  return [...emis, ...chits, ...sips, ...cards];
+  // Lending/borrowing with a due date: a one-off item due on that date.
+  const debts: SchedItem[] = (l.debts ?? [])
+    .filter((d) => !d.closed && d.dueDate)
+    .map((d): SchedItem => {
+      const s = debtStats(l, d);
+      const first = s.pays.find((t) => t.type === (d.direction === "lent" ? "expense" : "income"));
+      return { kind: "debt", id: d.id, name: d.person, sub: d.direction === "lent" ? "Owes you" : "You owe", amount: s.outstanding, dueDay: Number(d.dueDate!.slice(8, 10)), start: d.dueDate!.slice(0, 7), total: 1, paidBefore: 0, accountId: d.direction === "borrowed" ? first?.accountId ?? null : null, debt: d };
+    })
+    .filter((it) => it.amount > 0);
+  return [...emis, ...chits, ...sips, ...cards, ...debts];
 }
 /** First bill month for a card: the first due date on or after the day it was added. */
 function firstBill(a: Account): string {
@@ -166,6 +190,7 @@ export function payments(l: Ledger, it: SchedItem): Txn[] {
     case "emi": return l.txns.filter((t) => t.kind === "emi" && t.emiId === it.id);
     case "chit": return l.txns.filter((t) => t.kind === "chit" && t.chitId === it.id);
     case "sip": return l.txns.filter((t) => t.kind === "sip" && t.sipId === it.id);
+    case "debt": return l.txns.filter((t) => t.kind === "debt" && t.debtId === it.id);
     case "card": return l.txns.filter((t) => (t.type === "transfer" && t.toAccountId === it.id) || (t.type === "income" && t.accountId === it.id));
   }
 }
@@ -194,13 +219,22 @@ function shiftDays(d: string, n: number): string {
 }
 export function status(l: Ledger, it: SchedItem, m: string, today: string, pays = payments(l, it)): DueStatus | null {
   if (!isActive(it, m)) return null;
+  if (it.kind === "debt") {
+    const due = it.debt!.dueDate!;
+    const days = daysBetween(today, due);
+    if (it.amount <= 0) return { state: "paid", due, days };
+    return { state: days < 0 ? "overdue" : days <= reminderDays(l) ? "soon" : "upcoming", due, days };
+  }
   const due = dueDateFor(m, it.dueDay);
   const days = daysBetween(today, due);
   if (paidIn(it, m, pays)) return { state: "paid", due, days, txn: pays.find((p) => p.period === m) };
   // Nothing owed on the card: no bill to pay.
   if (it.kind === "card" && it.amount <= 0) return { state: "paid", due, days };
+  return { state: days < 0 ? "overdue" : days <= reminderDays(l) ? "soon" : "upcoming", due, days };
+}
+function reminderDays(l: Ledger) {
   const rd = Number(l.settings.reminderDays);
-  return { state: days < 0 ? "overdue" : days <= (isNaN(rd) ? 2 : rd) ? "soon" : "upcoming", due, days };
+  return isNaN(rd) ? 2 : rd;
 }
 export interface Reminder { it: SchedItem; m: string; st: DueStatus }
 /** Unpaid installments that are overdue or due within the reminder window. */
@@ -209,6 +243,12 @@ export function reminders(l: Ledger, today: string): Reminder[] {
   const out: Reminder[] = [];
   for (const it of schedItems(l)) {
     const pays = payments(l, it);
+    if (it.kind === "debt") {
+      // One-off: stays on the list from a few days before the date until it's settled.
+      const st = status(l, it, it.start, today, pays);
+      if (st && (st.state === "overdue" || st.state === "soon")) out.push({ it, m: it.start, st });
+      continue;
+    }
     for (const m of [addMonths(tm, -1), tm, addMonths(tm, 1)]) {
       const st = status(l, it, m, today, pays);
       if (st && (st.state === "overdue" || st.state === "soon")) {
@@ -224,6 +264,7 @@ export function reminders(l: Ledger, today: string): Reminder[] {
 export function unpaidPeriods(l: Ledger, it: SchedItem, today: string): string[] {
   const tm = today.slice(0, 7);
   const pays = payments(l, it);
+  if (it.kind === "debt") return it.amount > 0 ? [it.start] : [];
   if (it.kind === "card") {
     if (it.amount <= 0) return [];
     return [addMonths(tm, -1), tm, addMonths(tm, 1)].filter((m) => isActive(it, m) && !paidIn(it, m, pays)).slice(0, 1);

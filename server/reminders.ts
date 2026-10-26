@@ -16,19 +16,24 @@ export function buildMessage(l: Ledger, items: Reminder[]) {
   const bal = balances(l);
   const acc = (id: string | null) => l.accounts.find((a) => a.id === id)?.name ?? "no account";
   const lines = items.map((r) => {
+    if (r.it.kind === "debt") {
+      const lent = r.it.debt!.direction === "lent";
+      return `• ${r.it.name} · ${lent ? "owes you" : "you owe"} ${money(r.it.amount)} · ${when(r)}`;
+    }
     const kind = KIND_LABEL[r.it.kind];
     const amt = r.it.kind === "card" ? `${money(r.it.amount)} outstanding` : money(r.it.amount);
     const b = r.it.accountId != null && r.it.accountId in bal ? `, balance ${money(bal[r.it.accountId])}` : "";
     return `• ${r.it.name} · ${kind} ${amt} · ${when(r)} · from ${acc(r.it.accountId)}${b}`;
   });
-  const total = items.reduce((s, r) => s + r.it.amount, 0);
-  const subject = `Kanakku: ${items.length} payment${items.length > 1 ? "s" : ""} due · ${money(total)}`;
+  // Money owed to you isn't something you pay.
+  const total = items.filter((r) => r.it.debt?.direction !== "lent").reduce((s, r) => s + r.it.amount, 0);
+  const subject = `Kanakku: ${items.length} reminder${items.length > 1 ? "s" : ""} · ${money(total)} to pay`;
   const link = env.appUrl ? `\n\nOpen Kanakku: ${env.appUrl}` : "";
   const text = lines.join("\n") + link;
   const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
   const html =
     `<p>These payments need attention:</p><ul>${lines.map((l) => `<li>${esc(l.slice(2))}</li>`).join("")}</ul>` +
-    `<p><b>Total: ${esc(money(total))}</b></p>` +
+    `<p><b>To pay: ${esc(money(total))}</b></p>` +
     (env.appUrl ? `<p><a href="${esc(env.appUrl)}">Open Kanakku</a></p>` : "");
   return { subject, text, html };
 }

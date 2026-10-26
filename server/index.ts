@@ -59,7 +59,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   }
   const code = (err as { code?: string })?.code;
   if (code === "23505") return res.status(409).json({ error: "That installment is already marked paid for this month." });
-  if (code === "23503") return res.status(400).json({ error: "The linked account, loan, chitty or SIP no longer exists." });
+  if (code === "23503") return res.status(400).json({ error: "The linked account, loan, chitty, SIP or person no longer exists." });
   if (code === "23514") return res.status(400).json({ error: "One of the values is out of range." });
   console.error(err);
   res.status(500).json({ error: "Something went wrong on the server." });

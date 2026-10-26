@@ -22,7 +22,7 @@ export interface Account {
 }
 
 export type TxnType = "income" | "expense" | "transfer";
-export type TxnKind = "emi" | "chit" | "chitprize" | "sip" | "card";
+export type TxnKind = "emi" | "chit" | "chitprize" | "sip" | "card" | "debt";
 
 export interface Txn {
   id: string;
@@ -37,6 +37,7 @@ export interface Txn {
   emiId: string | null;
   chitId: string | null;
   sipId: string | null;
+  debtId: string | null;
   period: string | null; // YYYY-MM the installment (or card bill) belongs to
   chitDue: number | null; // full chitty installment, to derive the dividend
   sample: boolean;
@@ -91,6 +92,18 @@ export interface Sip {
   createdAt?: number;
 }
 
+/** Money lent to or borrowed from a person. Amounts live in txns (kind "debt"). */
+export interface Debt {
+  id: string;
+  person: string;
+  direction: "lent" | "borrowed";
+  note: string;
+  dueDate: string | null; // YYYY-MM-DD the money should come back / be repaid
+  closed: boolean; // settled or written off by hand
+  sample: boolean;
+  createdAt?: number;
+}
+
 export interface Settings {
   expenseCats: string[];
   incomeCats: string[];
@@ -103,6 +116,7 @@ export interface Ledger {
   emis: Emi[];
   chits: Chit[];
   sips: Sip[];
+  debts: Debt[];
   settings: Settings;
 }
 

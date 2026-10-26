@@ -10,6 +10,7 @@ import { Transactions } from "./views/Transactions";
 import { Reports } from "./views/Reports";
 import { Emis, Chitty, Sips } from "./views/Loans";
 import { Accounts } from "./views/Accounts";
+import { Lending } from "./views/Lending";
 
 const VIEWS: { id: View; label: string; short: string; icon: ReactNode }[] = [
   { id: "home", label: "Dashboard", short: "Home", icon: <><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></> },
@@ -18,6 +19,7 @@ const VIEWS: { id: View; label: string; short: string; icon: ReactNode }[] = [
   { id: "emis", label: "EMIs", short: "EMIs", icon: <><rect x="3" y="5" width="18" height="15" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></> },
   { id: "chitty", label: "Chitty", short: "Chitty", icon: <><circle cx="12" cy="12" r="8" /><path d="M12 4v8l5 3" /></> },
   { id: "sips", label: "SIPs", short: "SIPs", icon: <path d="M4 18l5-5 4 3 7-8M15 8h5v5" /> },
+  { id: "lending", label: "Lend & borrow", short: "Lending", icon: <><path d="M7 7h11l-3-3M17 17H6l3 3" /></> },
   { id: "accounts", label: "Accounts & setup", short: "Accounts", icon: <><path d="M3 10l9-6 9 6" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18" /></> },
 ];
 const viewFromHash = (): View => {
@@ -163,6 +165,7 @@ function Shell() {
                 {view === "emis" && <Emis />}
                 {view === "chitty" && <Chitty />}
                 {view === "sips" && <Sips />}
+                {view === "lending" && <Lending />}
                 {view === "accounts" && <Accounts />}
               </>
             )}
@@ -192,7 +195,7 @@ function SampleBanner() {
   const act = useActions();
   const [busy, setBusy] = useState(false);
   if (!data) return null;
-  const n = [data.accounts, data.txns, data.emis, data.chits, data.sips].reduce((s, rows) => s + rows.filter((r) => r.sample).length, 0);
+  const n = [data.accounts, data.txns, data.emis, data.chits, data.sips, data.debts].reduce((s, rows) => s + rows.filter((r) => r.sample).length, 0);
   if (!n) return null;
   return (
     <div className="alert info">

@@ -1,6 +1,6 @@
 # Kanakku Ledger
 
-A personal money tracker: income and expenses, bank-wise and category-wise reports, EMIs, chitty, SIPs and credit card bills, with reminders before each due date.
+A personal money tracker: income and expenses, bank-wise and category-wise reports, EMIs, chitty, SIPs, credit card bills, and money lent or borrowed, with reminders before each due date.
 
 ## Stack
 
@@ -19,6 +19,7 @@ The same `shared/finance.ts` runs in the browser (dashboard) and on the server (
 
 - `accounts`: banks, credit cards, cash, UPI wallets, each with an opening balance. Credit cards can also have a bill due day and the bank the bill is paid from.
 - `txns`: every money movement (`income`, `expense`, `transfer`). EMI, chitty and SIP payments are ordinary expenses tagged with `kind`, `emi_id`/`chit_id`/`sip_id` and `period` (`YYYY-MM`). Unique indexes stop the same month being paid twice. SIP installments count as spending (category "SIP"). A card bill payment is a transfer from the bank to the card (`kind = 'card'`), because the purchases were already counted as expenses.
+- `debts`: money lent to or borrowed from a person, with an optional date to be repaid by. The money itself is in `txns` (`kind = 'debt'`, `debt_id`), so it moves bank balances but isn't counted as income or spending.
 - `emis`, `chits`, `sips`: the schedules (first month, tenure, due day, amount, installments already paid before you started tracking).
 - `settings`: your categories and how many days ahead to remind.
 

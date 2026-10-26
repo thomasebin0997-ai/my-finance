@@ -67,14 +67,14 @@ export function ConfirmDelete({ col, id }: { col: Col; id: string }) {
   const { close } = useApp();
   const act = useActions();
   const [busy, setBusy] = useState(false);
-  const names: Record<Col, string> = { txns: "this entry", accounts: "this account", emis: "this EMI", chits: "this chitty", sips: "this SIP" };
+  const names: Record<Col, string> = { txns: "this entry", accounts: "this account", emis: "this EMI", chits: "this chitty", sips: "this SIP", debts: "this person's record" };
   let extra = "This can't be undone.";
   if (col === "accounts") {
     const n = l.txns.filter((t) => t.accountId === id || t.toAccountId === id).length;
     if (n) extra = `${n} entries use this account. They stay in your history but will show as “Deleted account” and stop counting toward any balance.`;
   }
-  if (col === "emis" || col === "chits" || col === "sips") {
-    const n = l.txns.filter((t) => t.emiId === id || t.chitId === id || t.sipId === id).length;
+  if (col === "emis" || col === "chits" || col === "sips" || col === "debts") {
+    const n = l.txns.filter((t) => t.emiId === id || t.chitId === id || t.sipId === id || t.debtId === id).length;
     if (n) extra = `The ${n} payment entries already recorded stay in your transactions.`;
   }
   if (col === "txns") {

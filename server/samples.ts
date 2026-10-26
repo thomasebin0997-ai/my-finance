@@ -28,6 +28,9 @@ export async function seedExamples(): Promise<number> {
     const sip = (await insert("sips", { name: "Parag Parikh Flexi Cap", platform: "Zerodha Coin", amount: 5000, dueDay: 5, startDate: m(-14), paidBefore: 12, accountId: ids.sbi, sample: true }, c)).id;
     const chit = (await insert("chits", { name: "KSFE 5 lakh chitty", company: "KSFE", chitValue: 500000, installment: 10000, months: 50, dueDay: chitDue, startDate: m(-10), accountId: ids.fed, paidBefore: 8, paidBeforeAmount: 74200, sample: true }, c)).id;
 
+    const arun = (await insert("debts", { person: "Arun", direction: "lent", note: "For bike repair", dueDate: d(0, Math.min(dom + 1, 28)), sample: true }, c)).id;
+    const ravi = (await insert("debts", { person: "Ravi chettan", direction: "borrowed", note: "House deposit", sample: true }, c)).id;
+
     type Row = [number, number, string, number, string, string, string, Record<string, unknown>?];
     const rows: Row[] = [];
     for (const off of [-2, -1, 0]) {
@@ -55,9 +58,13 @@ export async function seedExamples(): Promise<number> {
       [-1, 27, "income", 640, "fed", "Interest", "Savings interest"],
       [0, 10, "transfer", 25000, "fed", "Transfer", "Credit card bill", { toAccountId: ids.cc }],
       [0, 15, "expense", 1850, "cash", "Dining out", "Lunch with team"],
+      [-1, 6, "expense", 8000, "fed", "Lending", "Lent to Arun", { kind: "debt", debtId: arun }],
+      [0, 4, "income", 3000, "fed", "Lending", "Repaid by Arun", { kind: "debt", debtId: arun }],
+      [-2, 14, "income", 50000, "sbi", "Borrowing", "Borrowed from Ravi chettan", { kind: "debt", debtId: ravi }],
+      [-1, 14, "expense", 10000, "sbi", "Borrowing", "Repaid to Ravi chettan", { kind: "debt", debtId: ravi }],
     );
 
-    let n = 8;
+    let n = 10;
     for (const [off, day, type, amount, key, category, note, extra] of rows) {
       const date = d(off, day);
       if (date > today) continue;

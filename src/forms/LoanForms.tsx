@@ -4,6 +4,7 @@ import { dueDateFor, fmtDate, idxOf, monthDiff, monthLabel, money, schedItems, u
 import { AccountOptions, Field } from "../components/ui";
 import { useActions, useApp, useLedger } from "../state";
 import { ConfirmDelete, Foot, NeedAccount, Notice, useSubmit } from "./common";
+import { RepayForm } from "./DebtForms";
 
 const isMonth = (s: string) => /^\d{4}-\d{2}$/.test(s);
 
@@ -157,10 +158,16 @@ export function ChitForm({ c }: { c?: Chit }) {
   );
 }
 
-const PAY_TITLE: Record<SchedKind, string> = { emi: "Record EMI payment", chit: "Pay chitty installment", sip: "Record SIP installment", card: "Pay credit card bill" };
-const PAY_CAT: Record<SchedKind, string> = { emi: "EMI", chit: "Chitty", sip: "SIP", card: "Transfer" };
+type PayKind = Exclude<SchedKind, "debt">;
+const PAY_TITLE: Record<PayKind, string> = { emi: "Record EMI payment", chit: "Pay chitty installment", sip: "Record SIP installment", card: "Pay credit card bill" };
+const PAY_CAT: Record<PayKind, string> = { emi: "EMI", chit: "Chitty", sip: "SIP", card: "Transfer" };
 
+/** "Mark paid" for any scheduled item; lending/borrowing has its own repayment form. */
 export function PayForm({ kind, id, period }: { kind: SchedKind; id: string; period?: string }) {
+  return kind === "debt" ? <RepayForm id={id} /> : <SchedPayForm kind={kind} id={id} period={period} />;
+}
+
+function SchedPayForm({ kind, id, period }: { kind: PayKind; id: string; period?: string }) {
   const l = useLedger();
   const { today, toast } = useApp();
   const act = useActions();
@@ -186,6 +193,7 @@ export function PayForm({ kind, id, period }: { kind: SchedKind; id: string; per
         emiId: kind === "emi" ? id : null,
         chitId: kind === "chit" ? id : null,
         sipId: kind === "sip" ? id : null,
+        debtId: null,
         period: f.period,
         chitDue: kind === "chit" ? it.amount : null,
         sample: false,
@@ -243,6 +251,7 @@ export function PrizeForm({ id }: { id: string }) {
         emiId: null,
         chitId: id,
         sipId: null,
+        debtId: null,
         period: null,
         chitDue: null,
         sample: false,

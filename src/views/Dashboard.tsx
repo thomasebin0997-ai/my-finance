@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KIND_LABEL, balances, compact, groupBy, idxOf, money, monthDiff, monthLabel, monthTxns, addMonths, ordinal, reminders, schedItems, status, sumAmt, type SchedItem } from "../../shared/finance";
+import { KIND_LABEL, balances, compact, groupBy, idxOf, isEarn, isSpend, money, monthDiff, monthLabel, monthTxns, addMonths, ordinal, reminders, schedItems, status, sumAmt, type SchedItem } from "../../shared/finance";
 import type { Ledger } from "../../shared/types";
 import { AccDot, BellIcon, CatDot, Empty, StateChip, TxnRow, accName } from "../components/ui";
 import { useApp, useLedger } from "../state";
@@ -15,15 +15,15 @@ export function Dashboard() {
 
   const TM = today.slice(0, 7);
   const mt = monthTxns(l, M);
-  const incRows = mt.filter((t) => t.type === "income");
-  const expRows = mt.filter((t) => t.type === "expense");
+  const incRows = mt.filter(isEarn);
+  const expRows = mt.filter(isSpend);
   const inc = sumAmt(incRows);
   const exp = sumAmt(expRows);
   const bal = balances(l);
   const total = Object.values(bal).reduce((a, b) => a + b, 0);
   const rem = reminders(l, today);
   const dues = schedItems(l)
-    .filter((it) => it.kind !== "card" || M === TM) // a card's amount is today's outstanding
+    .filter((it) => (it.kind !== "card" || M === TM) && (it.kind !== "debt" || it.start === M)) // a card's amount is today's outstanding; a debt is due once
     .map((it) => ({ it, st: status(l, it, M, today) }))
     .filter((x): x is { it: (typeof x)["it"]; st: NonNullable<(typeof x)["st"]> } => !!x.st)
     .sort((a, b) => a.st.due.localeCompare(b.st.due));
@@ -41,7 +41,7 @@ export function Dashboard() {
             <div className="row" key={r.it.kind + r.it.id + r.m}>
               <div>
                 <b>{r.it.name}</b>{" "}
-                <span className="muted">{KIND_LABEL[r.it.kind]} · {r.it.kind === "card" ? `${money(r.it.amount)} outstanding` : `${monthLabel(r.m, true)} · ${money(r.it.amount)}`} from {accName(l, r.it.accountId)}</span>
+                <span className="muted">{reminderText(l, r.it, r.m)}</span>
               </div>
               <div className="actions">
                 <StateChip st={r.st} />
@@ -76,7 +76,7 @@ export function Dashboard() {
               <div className="list">
                 {dues.map(({ it, st }) => (
                   <div className="li" key={it.kind + it.id}>
-                    <CatDot cat={it.kind === "card" ? "Card" : KIND_LABEL[it.kind]} />
+                    <CatDot cat={it.kind === "card" ? "Card" : it.kind === "debt" ? it.name : KIND_LABEL[it.kind]} />
                     <div className="grow">
                       <div className="t">{it.name}</div>
                       <div className="sub">{ordinal(it.dueDay)} · {accName(l, it.accountId)} · {dueSub(it, M)}</div>
@@ -155,8 +155,14 @@ export function Dashboard() {
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+function reminderText(l: Ledger, it: SchedItem, m: string) {
+  if (it.kind === "debt") return it.debt!.direction === "lent" ? `Owes you ${money(it.amount)}` : `You owe ${money(it.amount)}`;
+  const what = it.kind === "card" ? `${money(it.amount)} outstanding` : `${monthLabel(m, true)} · ${money(it.amount)}`;
+  return `${KIND_LABEL[it.kind]} · ${what} from ${accName(l, it.accountId)}`;
+}
 function dueSub(it: SchedItem, M: string) {
   if (it.kind === "card") return "card bill, outstanding today";
+  if (it.kind === "debt") return it.debt!.direction === "lent" ? "to receive back" : "to repay";
   const label = it.kind === "sip" ? "SIP installment" : "installment";
   return it.total ? `${label} ${idxOf(it, M)} of ${it.total}` : `${label} ${idxOf(it, M)}`;
 }
@@ -183,7 +189,7 @@ function TrendChart({ l, M }: { l: Ledger; M: string }) {
   const months = [5, 4, 3, 2, 1, 0].map((i) => addMonths(M, -i));
   const data = months.map((m) => {
     const t = monthTxns(l, m);
-    return { m, inc: sumAmt(t.filter((x) => x.type === "income")), exp: sumAmt(t.filter((x) => x.type === "expense")) };
+    return { m, inc: sumAmt(t.filter(isEarn)), exp: sumAmt(t.filter(isSpend)) };
   });
   const max = niceMax(Math.max(1, ...data.map((d) => Math.max(d.inc, d.exp))));
   const narrow = useNarrow();

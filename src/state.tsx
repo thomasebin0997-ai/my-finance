@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Col, type Draft } from "./api";
 import type { Ledger, Settings } from "../shared/types";
 
-export type View = "home" | "transactions" | "reports" | "emis" | "chitty" | "sips" | "accounts";
+export type View = "home" | "transactions" | "reports" | "emis" | "chitty" | "sips" | "lending" | "accounts";
 export interface TxnFilter { type: string; account: string; category: string; q: string }
 export interface ReportState { period: "month" | "year"; account: string }
 

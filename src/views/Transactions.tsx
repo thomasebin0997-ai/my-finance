@@ -1,4 +1,4 @@
-import { fmtDate, money, monthTxns, sumAmt } from "../../shared/finance";
+import { fmtDate, isEarn, isSpend, money, monthTxns, sumAmt } from "../../shared/finance";
 import { SYS_EXP, SYS_INC, type Txn } from "../../shared/types";
 import { Empty, TxnRow, accName } from "../components/ui";
 import { useApp, useLedger } from "../state";
@@ -47,8 +47,8 @@ export function Transactions() {
         <>
           <div className="calc" style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 6 }}>
             <span>{rows.length} entries</span>
-            <span className="pos">In {money(sumAmt(rows.filter((t) => t.type === "income")))}</span>
-            <span className="neg">Out {money(sumAmt(rows.filter((t) => t.type === "expense")))}</span>
+            <span className="pos">In {money(sumAmt(rows.filter(isEarn)))}</span>
+            <span className="neg">Out {money(sumAmt(rows.filter(isSpend)))}</span>
           </div>
           {Object.entries(days).map(([d, list]) => {
             const out = sumAmt(list.filter((t) => t.type === "expense"));

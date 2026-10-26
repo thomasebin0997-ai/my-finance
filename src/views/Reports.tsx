@@ -1,4 +1,4 @@
-import { balances, groupBy, money, monthLabel, sumAmt } from "../../shared/finance";
+import { balances, groupBy, isEarn, isSpend, money, monthLabel, sumAmt } from "../../shared/finance";
 import type { Txn } from "../../shared/types";
 import { Empty, accTypeLabel } from "../components/ui";
 import { useApp, useLedger } from "../state";
@@ -30,8 +30,8 @@ export function Reports() {
   const rows = l.txns.filter((t) => inPeriod(t) && (R.account === "all" || t.accountId === R.account || t.toAccountId === R.account));
   const label = R.period === "year" ? M.slice(0, 4) : monthLabel(M);
   const mine = (t: Txn) => R.account === "all" || t.accountId === R.account;
-  const ex = rows.filter((t) => t.type === "expense" && mine(t));
-  const inc = rows.filter((t) => t.type === "income" && mine(t));
+  const ex = rows.filter((t) => isSpend(t) && mine(t));
+  const inc = rows.filter((t) => isEarn(t) && mine(t));
   const exT = sumAmt(ex), inT = sumAmt(inc);
   const accs = R.account === "all" ? l.accounts : l.accounts.filter((a) => a.id === R.account);
   const g = groupBy(ex, "category");

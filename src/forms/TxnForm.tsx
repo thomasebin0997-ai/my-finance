@@ -32,6 +32,7 @@ export function TxnForm({ t }: { t?: Txn }) {
         emiId: t?.emiId ?? null,
         chitId: t?.chitId ?? null,
         sipId: t?.sipId ?? null,
+        debtId: t?.debtId ?? null,
         period: t?.period ?? null,
         chitDue: t?.chitDue ?? null,
         sample: t?.sample ?? false,
@@ -45,10 +46,11 @@ export function TxnForm({ t }: { t?: Txn }) {
   const cats = type === "income" ? [...l.settings.incomeCats, ...SYS_INC] : [...l.settings.expenseCats, ...SYS_EXP];
   if (t?.category && type === t.type && !cats.includes(t.category)) cats.push(t.category);
   const linked =
-    t?.kind === "emi" ? l.emis.find((e) => e.id === t.emiId)
-    : t?.kind === "sip" ? l.sips.find((s) => s.id === t.sipId)
-    : t?.kind === "card" ? l.accounts.find((a) => a.id === t.toAccountId)
-    : t?.kind ? l.chits.find((c) => c.id === t.chitId)
+    t?.kind === "emi" ? l.emis.find((e) => e.id === t.emiId)?.name
+    : t?.kind === "sip" ? l.sips.find((s) => s.id === t.sipId)?.name
+    : t?.kind === "card" ? l.accounts.find((a) => a.id === t.toAccountId)?.name
+    : t?.kind === "debt" ? l.debts.find((d) => d.id === t.debtId)?.person
+    : t?.kind ? l.chits.find((c) => c.id === t.chitId)?.name
     : undefined;
   const defAcc = t?.accountId ?? (filter.account !== "all" ? filter.account : l.accounts[0].id);
 
@@ -57,7 +59,7 @@ export function TxnForm({ t }: { t?: Txn }) {
       <h2>{t ? "Edit entry" : "New entry"}</h2>
       {linked && (
         <div className="calc">
-          Linked to <b>{linked.name}</b>{t?.period ? ` · ${monthLabel(t.period)}` : ""}.
+          Linked to <b>{linked}</b>{t?.period ? ` · ${monthLabel(t.period)}` : ""}.
         </div>
       )}
       <div className="seg" role="radiogroup" aria-label="Entry type">
